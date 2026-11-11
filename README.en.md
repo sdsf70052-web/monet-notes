@@ -7,7 +7,17 @@ Written in native Java with the Android SDK — **zero third-party dependencies*
 
 - Package: `com.muse.monetnotes`
 - Min version: Android 8.0 (API 26); Target: Android 14 (API 34)
-- Current version: 1.40
+- Current version: 1.41
+
+## Screenshots
+
+| Home (dark) | Home (light) | Editor (light) |
+| --- | --- | --- |
+| <img src="screenshots/home-dark.jpg" width="240"> | <img src="screenshots/home-light.jpg" width="240"> | <img src="screenshots/editor-light.jpg" width="240"> |
+
+| Multi-select | Settings & effect levels | Editor (dark) |
+| --- | --- | --- |
+| <img src="screenshots/multiselect-dark.jpg" width="240"> | <img src="screenshots/settings.jpg" width="240"> | <img src="screenshots/editor-dark.jpg" width="240"> |
 
 ## Features
 

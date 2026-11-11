@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.ColorStateList;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -90,6 +91,14 @@ public class SettingsActivity extends Activity {
 
     private Switch switchFor(String key, boolean def, Runnable after) {
         Switch sw = new Switch(this);
+        // 开关的滑块/轨道颜色也显式按 Palette 设置：跟单选按钮同一教训，
+        // 用主题默认色时，系统深色 + 应用强制浅色会让控件与背景融在一起
+        sw.setThumbTintList(new ColorStateList(
+                new int[][]{{android.R.attr.state_checked}, {}},
+                new int[]{pal.primary, Palette.blend(pal.textPrimary, pal.background, 0.45f)}));
+        sw.setTrackTintList(new ColorStateList(
+                new int[][]{{android.R.attr.state_checked}, {}},
+                new int[]{Palette.withAlpha(pal.primary, 0x66), Palette.withAlpha(pal.outline, 0x55)}));
         sw.setChecked(sp.getBoolean(key, def));
         sw.setOnCheckedChangeListener((v, checked) -> {
             sp.edit().putBoolean(key, checked).apply();
@@ -109,6 +118,12 @@ public class SettingsActivity extends Activity {
         for (int i = 0; i < labels.length; i++) {
             RadioButton rb = new RadioButton(this);
             rb.setText(labels[i]);
+            // 文字与圆圈颜色必须显式按 Palette 设置：RadioButton 的默认色来自系统主题，
+            // 当系统处于深色而应用被设为浅色时，白字落在近白卡片上会完全看不见（v1.41 修复）
+            rb.setTextColor(pal.textPrimary);
+            rb.setButtonTintList(new ColorStateList(
+                    new int[][]{{android.R.attr.state_checked}, {}},
+                    new int[]{pal.primary, pal.outline}));
             ids[i] = View.generateViewId();
             rb.setId(ids[i]);
             g.addView(rb);
@@ -524,7 +539,7 @@ public class SettingsActivity extends Activity {
         tags = tagSet.size();
         TextView info = Ui.text(this,
                 Lang.f("莫奈备忘录 Monet Notes\n版本 %1$s · %2$d 条笔记 · %3$d 个分类 · %4$d 个标签\n原生 Java 实现，无第三方依赖",
-                        "1.40", notes, Categories.load(this).size(), tags),
+                        "1.41", notes, Categories.load(this).size(), tags),
                 14, pal.textSecondary, false);
         info.setPadding(0, Ui.dp(this, 10), 0, Ui.dp(this, 10));
         info.setLineSpacing(0, 1.4f);

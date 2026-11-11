@@ -7,7 +7,7 @@
 项目使用原生 Java 与 Android SDK 编写，**不使用 Gradle、不引入任何第三方依赖**，通过一条手动 Android 构建管线生成约 125 KB 的 APK。
 
 - 包名：`com.muse.monetnotes`
-- 当前版本：**1.40**
+- 当前版本：**1.41**
 - 最低版本：Android 8.0（API 26）
 - 目标版本：Android 14（API 34）
 - 许可证：[MIT](LICENSE)
@@ -19,6 +19,16 @@
 - **可调效果强度**：极致、均衡、流畅与自定义四档，可分别设置场景采样分辨率、拷贝帧率上限和动态背景帧率，按设备性能取舍。
 - **完整笔记能力**：自动保存、清单、提醒、附件、分类、标签、多选批处理、笔记内查找替换、撤销/重做、导入/导出一应俱全。
 - **本地与轻量**：不申请网络权限，笔记与设置保存在应用私有目录；无第三方 SDK、无账号系统。
+
+## 效果图
+
+| 主页（深色） | 主页（浅色） | 编辑页（浅色） |
+| --- | --- | --- |
+| <img src="screenshots/home-dark.jpg" width="240"> | <img src="screenshots/home-light.jpg" width="240"> | <img src="screenshots/editor-light.jpg" width="240"> |
+
+| 多选模式 | 设置与效果强度 | 编辑页（深色） |
+| --- | --- | --- |
+| <img src="screenshots/multiselect-dark.jpg" width="240"> | <img src="screenshots/settings.jpg" width="240"> | <img src="screenshots/editor-dark.jpg" width="240"> |
 
 ## 功能
 

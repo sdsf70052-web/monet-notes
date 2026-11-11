@@ -6,6 +6,7 @@ import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
 import android.content.ClipData;
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.Uri;
@@ -537,6 +538,11 @@ public class EditorActivity extends Activity {
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
             CheckBox cb = new CheckBox(this);
+            // 与设置页单选按钮同一教训：勾选圈颜色显式按 Palette 设置，
+            // 避免系统深色 + 应用浅色时与背景融在一起
+            cb.setButtonTintList(new ColorStateList(
+                    new int[][]{{android.R.attr.state_checked}, {}},
+                    new int[]{pal.primary, pal.outline}));
             cb.setChecked(item.done);
             cb.setOnCheckedChangeListener((v, checked) -> {
                 note.items.get(idx).done = checked;
