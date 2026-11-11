@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#6750A4</item>
+        <item name="android:alertDialogTheme">@style/AppDialogTheme</item>
+    </style>
+    <style name="AppDialogTheme" parent="@android:style/Theme.DeviceDefault.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/dialog_bg</item>
+        <item name="android:colorAccent">#6750A4</item>
+    </style>
+    <!-- 浮层栏（多选栏/撤销栏）专用浮窗：全透明、无变暗、无窗口动画、不抢焦点 -->
+    <style name="OverlayDialogTheme" parent="@android:style/Theme.Translucent.NoTitleBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+</resources>

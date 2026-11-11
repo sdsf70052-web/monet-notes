@@ -1,0 +1,12 @@
+# 构建产物
+build/
+*.apk
+*.idsig
+
+# 本地签名（请按 README 说明自行生成 debug.keystore）
+debug.keystore
+
+# 系统与编辑器
+.DS_Store
+*.iml
+.idea/
