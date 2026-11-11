@@ -49,6 +49,24 @@ public class EditorActivity extends Activity {
     private boolean isNew;
     private EditText titleBox;
     private EditText contentBox;
+    // Markdown（v1.43）
+    private HorizontalScrollView mdBarScroll;
+    private TextView previewBox;
+    private TextView previewBtn;
+    private boolean previewOn;
+    private final Runnable mdRestyleTask = () -> {
+        if (!previewOn && note != null && !note.checklist && contentBox != null) {
+            try { Markdown.style(contentBox.getText(), pal); } catch (Exception ignored) { }
+        }
+    };
+    private final TextWatcher mdWatcher = new TextWatcher() {
+        @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
+        @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
+        @Override public void afterTextChanged(Editable e) {
+            handler.removeCallbacks(mdRestyleTask);
+            handler.postDelayed(mdRestyleTask, 200);
+        }
+    };
     private LinearLayout checklistBox;
     private LinearLayout attachmentsBox;
     private TextView attachTitle;
@@ -329,6 +347,8 @@ public class EditorActivity extends Activity {
             scheduleSave();
         });
         bar.addView(favBtn);
+        previewBtn = barBtn("👁", v -> togglePreview());
+        bar.addView(previewBtn);
         bar.addView(barBtn("🔍", v -> toggleSearchPanel()));
         bar.addView(barBtn("↗", v -> share()));
         root.addView(bar);
@@ -344,6 +364,7 @@ public class EditorActivity extends Activity {
         tools.addView(toolChip(Lang.t("🏷 标签"), v -> editTags()));
         tools.addView(toolChip(Lang.t("🎨 颜色"), v -> pickColor()));
         tools.addView(toolChip(Lang.t("🔔 提醒"), v -> pickReminder()));
+        tools.addView(toolChip(Lang.t("📤 导出"), v -> { collect(); Exporter.showExport(this, note, pal); }));
         HorizontalScrollView thsv = new HorizontalScrollView(this);
         thsv.setHorizontalScrollBarEnabled(false);
         thsv.addView(tools);
@@ -425,7 +446,14 @@ public class EditorActivity extends Activity {
         contentBox.setLineSpacing(0, 1.35f);
         contentBox.setPadding(0, 0, 0, 0);
         contentBox.addTextChangedListener(autoSaveWatcher);
+        contentBox.addTextChangedListener(mdWatcher);
         body.addView(contentBox);
+
+        previewBox = Ui.text(this, "", 16, pal.textPrimary, false);
+        previewBox.setLineSpacing(0, 1.35f);
+        previewBox.setVisibility(View.GONE);
+        body.addView(previewBox);
+        contentBox.post(mdRestyleTask);
 
         checklistBox = new LinearLayout(this);
         checklistBox.setOrientation(LinearLayout.VERTICAL);
@@ -443,6 +471,29 @@ public class EditorActivity extends Activity {
         });
         body.addView(addItem);
         body.setTag(addItem);
+
+        // Markdown 格式工具栏（v1.43）：横向滚动，正文模式下显示在底部删除键上方
+        LinearLayout mdTools = new LinearLayout(this);
+        mdTools.setOrientation(LinearLayout.HORIZONTAL);
+        mdTools.setPadding(Ui.dp(this, 16), Ui.dp(this, 2), Ui.dp(this, 16), Ui.dp(this, 2));
+        mdTools.addView(toolChip("H1", v -> mdHeading("# ")));
+        mdTools.addView(toolChip("H2", v -> mdHeading("## ")));
+        mdTools.addView(toolChip("H3", v -> mdHeading("### ")));
+        mdTools.addView(toolChip("B", v -> mdWrap("**", "**", Lang.t("粗体"))));
+        mdTools.addView(toolChip("I", v -> mdWrap("*", "*", Lang.t("斜体"))));
+        mdTools.addView(toolChip("S", v -> mdWrap("~~", "~~", Lang.t("删除线"))));
+        mdTools.addView(toolChip("❝", v -> mdQuote()));
+        mdTools.addView(toolChip("•", v -> mdBullet()));
+        mdTools.addView(toolChip("1.", v -> mdNumber()));
+        mdTools.addView(toolChip("☑", v -> mdCheck()));
+        mdTools.addView(toolChip("`", v -> mdWrap("`", "`", Lang.t("代码"))));
+        mdTools.addView(toolChip("```", v -> mdWrap("```\n", "\n```", Lang.t("代码"))));
+        mdTools.addView(toolChip("🔗", v -> mdWrap("[", "](https://)", "")));
+        mdTools.addView(toolChip("―", v -> mdInsert("\n\n---\n")));
+        mdBarScroll = new HorizontalScrollView(this);
+        mdBarScroll.setHorizontalScrollBarEnabled(false);
+        mdBarScroll.addView(mdTools);
+        root.addView(mdBarScroll);
 
         // 底部删除
         TextView del = Ui.text(this, note.trashed ? Lang.t("彻底删除") : Lang.t("移到回收站"), 14, 0xFFB3261E, false);
@@ -496,6 +547,136 @@ public class EditorActivity extends Activity {
         View addBtn = (View) body.getTag();
         if (addBtn != null) addBtn.setVisibility(note.checklist ? View.VISIBLE : View.GONE);
         progressText.setVisibility(note.checklist ? View.VISIBLE : View.GONE);
+        if (mdBarScroll != null) mdBarScroll.setVisibility(!note.checklist && !previewOn ? View.VISIBLE : View.GONE);
+        if (previewBox != null) {
+            if (note.checklist) previewBox.setVisibility(View.GONE);
+            else if (previewOn) { previewBox.setVisibility(View.VISIBLE); contentBox.setVisibility(View.GONE); }
+        }
+    }
+
+    // ---------- Markdown 编辑动作（v1.43） ----------
+
+    private void mdLines(java.util.function.Function<String, String> fn) {
+        Editable e = contentBox.getText();
+        if (e == null) return;
+        int a = Math.min(contentBox.getSelectionStart(), contentBox.getSelectionEnd());
+        int b = Math.max(contentBox.getSelectionStart(), contentBox.getSelectionEnd());
+        if (a < 0) { a = b = e.length(); }
+        int ls = a == 0 ? 0 : e.toString().lastIndexOf('\n', a - 1) + 1;
+        int le = b;
+        while (le < e.length() && e.charAt(le) != '\n') le++;
+        String[] lines = e.subSequence(ls, le).toString().split("\n", -1);
+        for (int i = 0; i < lines.length; i++) lines[i] = fn.apply(lines[i]);
+        String joined = String.join("\n", lines);
+        e.replace(ls, le, joined);
+        contentBox.setSelection(ls, ls + joined.length());
+        contentBox.requestFocus();
+    }
+
+    private static String mdIndentOf(String line) {
+        int i = 0;
+        while (i < line.length() && (line.charAt(i) == ' ' || line.charAt(i) == '\t')) i++;
+        return line.substring(0, i);
+    }
+
+    private static String mdStripListMarker(String body) {
+        String r = body.replaceFirst("^[-*+]\\s+(\\[[ xX]\\]\\s+)?", "");
+        return r.replaceFirst("^\\d{1,9}[.)]\\s+", "");
+    }
+
+    /** 标题按钮：切换光标行（或所选多行）的标题前缀，然后把光标放到第一行标题符号之后，方便直接接着输入。 */
+    private void mdHeading(String prefix) {
+        Editable e = contentBox.getText();
+        if (e == null) return;
+        int a = Math.min(contentBox.getSelectionStart(), contentBox.getSelectionEnd());
+        int b = Math.max(contentBox.getSelectionStart(), contentBox.getSelectionEnd());
+        if (a < 0) { a = b = e.length(); }
+        int ls = a == 0 ? 0 : e.toString().lastIndexOf('\n', a - 1) + 1;
+        int le = b;
+        while (le < e.length() && e.charAt(le) != '\n') le++;
+        String[] lines = e.subSequence(ls, le).toString().split("\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            String stripped = lines[i].replaceFirst("^#{1,6}\\s+", "");
+            lines[i] = lines[i].startsWith(prefix) ? stripped : prefix + stripped;
+        }
+        e.replace(ls, le, String.join("\n", lines));
+        int cur = lines[0].startsWith(prefix) ? ls + prefix.length() : ls;
+        contentBox.setSelection(cur);
+        contentBox.requestFocus();
+    }
+
+    private void mdQuote() {
+        mdLines(line -> line.startsWith(">") ? line.replaceFirst("^>\\s?", "") : "> " + line);
+    }
+
+    private void mdBullet() {
+        mdLines(line -> {
+            String ind = mdIndentOf(line), body = line.substring(ind.length());
+            boolean isBullet = (body.startsWith("- ") || body.startsWith("* ") || body.startsWith("+ "))
+                    && !body.substring(2).startsWith("[");
+            return isBullet ? ind + body.substring(2) : ind + "- " + mdStripListMarker(body);
+        });
+    }
+
+    private void mdNumber() {
+        mdLines(line -> {
+            String ind = mdIndentOf(line), body = line.substring(ind.length());
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("^\\d{1,9}[.)]\\s+").matcher(body);
+            return m.find() ? ind + body.substring(m.end()) : ind + "1. " + mdStripListMarker(body);
+        });
+    }
+
+    private void mdCheck() {
+        mdLines(line -> {
+            String ind = mdIndentOf(line), body = line.substring(ind.length());
+            if (body.startsWith("- [ ] ") || body.startsWith("- [x] ") || body.startsWith("- [X] "))
+                return ind + body.substring(6);
+            return ind + "- [ ] " + mdStripListMarker(body);
+        });
+    }
+
+    private void mdWrap(String before, String after, String placeholder) {
+        Editable e = contentBox.getText();
+        if (e == null) return;
+        int a = Math.min(contentBox.getSelectionStart(), contentBox.getSelectionEnd());
+        int b = Math.max(contentBox.getSelectionStart(), contentBox.getSelectionEnd());
+        if (a < 0) { a = b = e.length(); }
+        if (a == b) {
+            e.insert(a, before + placeholder + after);
+            contentBox.setSelection(a + before.length(), a + before.length() + placeholder.length());
+        } else {
+            String sel = e.subSequence(a, b).toString();
+            e.replace(a, b, before + sel + after);
+            contentBox.setSelection(a + before.length(), a + before.length() + sel.length());
+        }
+        contentBox.requestFocus();
+    }
+
+    private void mdInsert(String text) {
+        Editable e = contentBox.getText();
+        if (e == null) return;
+        int a = Math.max(0, contentBox.getSelectionStart());
+        e.insert(a, text);
+        contentBox.setSelection(a + text.length());
+        contentBox.requestFocus();
+    }
+
+    private void togglePreview() {
+        if (note.checklist) { toast(Lang.t("清单模式不支持预览")); return; }
+        previewOn = !previewOn;
+        if (previewOn) {
+            previewBox.setText(Markdown.render(contentBox.getText().toString(), pal));
+            previewBox.setVisibility(View.VISIBLE);
+            contentBox.setVisibility(View.GONE);
+            mdBarScroll.setVisibility(View.GONE);
+            previewBtn.setText("✏️");
+        } else {
+            previewBox.setVisibility(View.GONE);
+            contentBox.setVisibility(View.VISIBLE);
+            mdBarScroll.setVisibility(View.VISIBLE);
+            previewBtn.setText("👁");
+            Markdown.style(contentBox.getText(), pal);
+        }
     }
 
     private TextView barBtn(String label, View.OnClickListener cb) {
@@ -801,6 +982,7 @@ public class EditorActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (Exporter.handleSaveResult(this, requestCode, resultCode, data)) return;
         if (resultCode != RESULT_OK || data == null) return;
         if (requestCode != REQ_IMAGE && requestCode != REQ_DOC && requestCode != REQ_FILE) return;
         List<Uri> uris = new ArrayList<>();
@@ -989,7 +1171,8 @@ public class EditorActivity extends Activity {
         Editable e = box.getText();
         if (e == null) return;
         BackgroundColorSpan[] spans = e.getSpans(0, e.length(), BackgroundColorSpan.class);
-        for (BackgroundColorSpan sp : spans) e.removeSpan(sp);
+        // 只清搜索自己的纯 BackgroundColorSpan，Markdown 代码底色是其子类 Bg，不能误删
+        for (BackgroundColorSpan sp : spans) if (sp.getClass() == BackgroundColorSpan.class) e.removeSpan(sp);
     }
 
     /** 只统计命中并（处数不多时）预高亮，不跳转。长文本的小写副本按内容缓存，避免每次按键都重算。 */

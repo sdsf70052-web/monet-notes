@@ -539,7 +539,7 @@ public class SettingsActivity extends Activity {
         tags = tagSet.size();
         TextView info = Ui.text(this,
                 Lang.f("莫奈备忘录 Monet Notes\n版本 %1$s · %2$d 条笔记 · %3$d 个分类 · %4$d 个标签\n原生 Java 实现，无第三方依赖",
-                        "1.42", notes, Categories.load(this).size(), tags),
+                        "1.48", notes, Categories.load(this).size(), tags),
                 14, pal.textSecondary, false);
         info.setPadding(0, Ui.dp(this, 10), 0, Ui.dp(this, 10));
         info.setLineSpacing(0, 1.4f);

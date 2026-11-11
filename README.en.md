@@ -7,7 +7,7 @@ Written in native Java with the Android SDK — **zero third-party dependencies*
 
 - Package: `com.muse.monetnotes`
 - Min version: Android 8.0 (API 26); Target: Android 14 (API 34)
-- Current version: 1.42
+- Current version: 1.48
 
 ## Screenshots
 
@@ -27,6 +27,8 @@ Written in native Java with the Android SDK — **zero third-party dependencies*
 - Search (title / body / tags / categories / attachment names), multiple sort modes including manual ordering
 - Multi-select mode: batch move to category / copy / delete, with select-all and invert
 - In-note search: highlight matches, jump between hits, replace current / all (undoable)
+- Markdown: formatting toolbar (headings / bold / italic / strikethrough / quotes / lists / to-dos / code / links / dividers), live styling while editing, and a one-tap rendered preview (👁)
+- Export: save any note as Markdown / plain text / HTML / PDF / long image (PNG), then share it or save it anywhere on the device (available in the editor toolbar and the home card menu); extra-long notes can be split into multiple consecutive images at the original text size, and the image set can be packed into a single ZIP
 - Reminders: system notifications at the scheduled time, automatically restored after reboot
 - Edit undo / redo (snapshot stack)
 

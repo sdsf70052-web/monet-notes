@@ -297,6 +297,32 @@ public class Lang {
         d("清空回收站（%1$d 条）", "清空回收桶（%1$d 條）", "Empty trash (%1$d)");
         d("关于", "關於", "About");
         d("GitHub 仓库", "GitHub 倉庫", "GitHub repository");
+        d("粗体", "粗體", "bold text");
+        d("斜体", "斜體", "italic text");
+        d("代码", "程式碼", "code");
+        d("清单模式不支持预览", "清單模式不支援預覽", "Preview is not available in checklist mode");
+        d("导出笔记", "匯出筆記", "Export note");
+        d("导出…", "匯出…", "Export…");
+        d("纯文本", "純文本", "Plain text");
+        d("HTML 网页", "HTML 網頁", "HTML page");
+        d("PDF 文档", "PDF 文件", "PDF document");
+        d("长图", "長圖", "Long image");
+        d("保存到…", "儲存到…", "Save to…");
+        d("已保存", "已儲存", "Saved");
+        d("无标题笔记", "無標題筆記", "Untitled note");
+        d("正在生成导出文件…", "正在產生匯出檔…", "Generating export file…");
+        d("内存不足，长图生成失败", "記憶體不足，長圖產生失敗", "Out of memory — long image failed");
+        d("导出长图", "匯出長圖", "Export long image");
+        d("这篇笔记内容较长，一张图放不下。\n\n可导出为 %1$d 张连续图片（保持原字号，文件名带序号），或缩成一张长图（字号会自动缩小）。",
+          "這篇筆記內容較長，一張圖放不下。\n\n可匯出為 %1$d 張連續圖片（保持原字號，檔名帶序號），或縮成一張長圖（字號會自動縮小）。",
+          "This note is too long for a single image.\n\nExport it as %1$d consecutive images (original text size, numbered file names), or shrink it into one long image (text size reduced automatically).");
+        d("导出为 %1$d 张图片", "匯出為 %1$d 張圖片", "Export as %1$d images");
+        d("一张长图（缩字号）", "一張長圖（縮字號）", "One long image (smaller text)");
+        d("保存到文件夹…", "儲存到資料夾…", "Save to folder…");
+        d("已保存 %1$d 张图片", "已儲存 %1$d 張圖片", "Saved %1$d images");
+        d("分享整组图片", "分享整組圖片", "Share all images");
+        d("打包成压缩包", "打包成壓縮檔", "Pack into a ZIP file");
+        d("附件：", "附件：", "Attachments:");
         d("无法打开浏览器", "無法打開瀏覽器", "Cannot open browser");
         d("回收站已清空", "回收桶已清空", "Trash emptied");
         d("回收站已经是空的", "回收桶已經是空的", "Trash is already empty");

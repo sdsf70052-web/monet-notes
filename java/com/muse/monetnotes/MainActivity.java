@@ -104,6 +104,12 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        Exporter.handleSaveResult(this, requestCode, resultCode, data);
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         int curLang = getSharedPreferences(Palette.PREFS, MODE_PRIVATE).getInt(Lang.KEY_LANG, 0);
@@ -773,7 +779,8 @@ public class MainActivity extends Activity {
                 card.addView(prog);
             }
         } else if (!n.content.isEmpty()) {
-            String preview = n.content.length() > 300 ? n.content.substring(0, 300) + "…" : n.content;
+            String preview = Markdown.strip(n.content);
+            preview = preview.length() > 300 ? preview.substring(0, 300) + "…" : preview;
             TextView body = Ui.text(this, preview, 13, pal.textSecondary, false);
             body.setMaxLines(grid ? 7 : 3);
             body.setPadding(0, Ui.dp(this, 5), 0, 0);
@@ -1073,6 +1080,7 @@ public class MainActivity extends Activity {
             menu.getMenu().add(0, 15, 0, Lang.t("编辑标签…"));
             menu.getMenu().add(0, 16, 0, Lang.t("多选"));
             menu.getMenu().add(0, 4, 0, Lang.t("分享"));
+            menu.getMenu().add(0, 17, 0, Lang.t("导出…"));
             menu.getMenu().add(0, 5, 0, Lang.t("复制正文"));
             menu.getMenu().add(0, 6, 0, Lang.t("移到回收站"));
         }
@@ -1106,6 +1114,7 @@ public class MainActivity extends Activity {
                 case 15: editTags(n); return true;
                 case 16: enterSelection(n); return true;
                 case 4: share(n); return true;
+                case 17: Exporter.showExport(this, n, pal); return true;
                 case 5: copy(n); return true;
                 case 6: {
                     UndoEntry snap = capture(java.util.Collections.singletonList(n));

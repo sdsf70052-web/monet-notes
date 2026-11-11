@@ -16,6 +16,14 @@ public class AttachProvider extends ContentProvider {
     public boolean onCreate() { return true; }
 
     private File resolve(Uri uri) {
+        java.util.List<String> seg = uri.getPathSegments();
+        if (seg.size() == 2 && "exp".equals(seg.get(0))) {
+            // 导出文件：files/exports/<name>
+            String name = seg.get(1);
+            if (name.contains("/") || name.contains("..")) return null;
+            File d = new File(getContext().getFilesDir(), "exports");
+            return new File(d, name);
+        }
         String name = uri.getLastPathSegment();
         if (name == null || name.contains("/") || name.contains("..")) return null;
         return new File(Attachments.dir(getContext()), name);
@@ -35,6 +43,7 @@ public class AttachProvider extends ContentProvider {
             int dot = name.lastIndexOf('.');
             if (dot > 0) {
                 String ext = name.substring(dot + 1).toLowerCase();
+                if ("md".equals(ext)) return "text/markdown";
                 String mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext);
                 if (mime != null) return mime;
             }
