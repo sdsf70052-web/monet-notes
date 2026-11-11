@@ -296,6 +296,8 @@ public class Lang {
         d("覆盖导入", "覆蓋匯入", "Overwrite");
         d("清空回收站（%1$d 条）", "清空回收桶（%1$d 條）", "Empty trash (%1$d)");
         d("关于", "關於", "About");
+        d("GitHub 仓库", "GitHub 倉庫", "GitHub repository");
+        d("无法打开浏览器", "無法打開瀏覽器", "Cannot open browser");
         d("回收站已清空", "回收桶已清空", "Trash emptied");
         d("回收站已经是空的", "回收桶已經是空的", "Trash is already empty");
         d("备份已导出", "備份已匯出", "Backup exported");

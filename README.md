@@ -7,7 +7,7 @@
 项目使用原生 Java 与 Android SDK 编写，**不使用 Gradle、不引入任何第三方依赖**，通过一条手动 Android 构建管线生成约 125 KB 的 APK。
 
 - 包名：`com.muse.monetnotes`
-- 当前版本：**1.41**
+- 当前版本：**1.42**
 - 最低版本：Android 8.0（API 26）
 - 目标版本：Android 14（API 34）
 - 许可证：[MIT](LICENSE)

@@ -7,7 +7,7 @@ Written in native Java with the Android SDK — **zero third-party dependencies*
 
 - Package: `com.muse.monetnotes`
 - Min version: Android 8.0 (API 26); Target: Android 14 (API 34)
-- Current version: 1.41
+- Current version: 1.42
 
 ## Screenshots
 

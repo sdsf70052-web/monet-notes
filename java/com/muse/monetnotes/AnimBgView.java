@@ -1,6 +1,7 @@
 package com.muse.monetnotes;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -24,6 +25,12 @@ public class AnimBgView extends View {
     private final Palette pal;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
+
+    // 极光/流体的低分辨率缓存（见 drawCached）
+    private Bitmap fxCache;
+    private Canvas fxCanvas;
+    private long fxCachePhase = -1;
+    private final android.graphics.Rect fxDst = new android.graphics.Rect();
 
     // 气泡：x(0-1), 半径dp, 速度, 相位
     private final float[][] bubbles = new float[14][4];
@@ -122,6 +129,7 @@ public class AnimBgView extends View {
         if (w == 0 || h == 0) return;
         long t = SystemClock.uptimeMillis();
         float density = getResources().getDisplayMetrics().density;
+        if (effect == FX_AURORA || effect == FX_FLUID) { drawCached(canvas, w, h, t); return; }
         canvas.drawColor(pal.background);
         switch (effect) {
             case FX_AURORA: drawAurora(canvas, w, h, t); break;
@@ -130,6 +138,39 @@ public class AnimBgView extends View {
             case FX_WAVES: drawWaves(canvas, w, h, t); break;
             case FX_FLUID: drawFluid(canvas, w, h, t); break;
         }
+    }
+
+    /**
+     * 极光 / 流体专用路径（v1.42 闪烁修复）：两者都是全屏多层径向渐变（3~7 层近全屏
+     * 覆盖），每帧在全分辨率下重绘是所有动态背景里最重的，帧耗时忽长忽短，
+     * 呈现出来就是忽快忽慢的闪烁；气泡/星空/波浪都是小面积元素，没有这个问题。
+     * 两者画面极其柔和，先以 1/3 分辨率绘入缓存小图、再双线性拉伸上屏，肉眼无差别，
+     * 单帧成本降约一个数量级，帧率随之稳定。相位再按 33ms 量化：高帧率档下
+     * 相邻帧共用同一幅缓存，不重复生成渐变。
+     */
+    private void drawCached(Canvas c, int w, int h, long t) {
+        int bw = Math.max(48, w / 3), bh = Math.max(48, h / 3);
+        if (fxCache == null || fxCache.getWidth() != bw || fxCache.getHeight() != bh) {
+            fxCache = Bitmap.createBitmap(bw, bh, Bitmap.Config.ARGB_8888);
+            fxCanvas = new Canvas(fxCache);
+            fxCachePhase = -1;
+        }
+        long phase = t - (t % 33);
+        if (phase != fxCachePhase) {
+            fxCachePhase = phase;
+            fxCanvas.save();
+            fxCanvas.scale(bw / (float) w, bh / (float) h);
+            fxCanvas.drawColor(pal.background);
+            if (effect == FX_AURORA) drawAurora(fxCanvas, w, h, phase);
+            else drawFluid(fxCanvas, w, h, phase);
+            fxCanvas.restore();
+        }
+        paint.setShader(null);
+        paint.setStyle(Paint.Style.FILL);
+        paint.setFilterBitmap(true);
+        fxDst.set(0, 0, w, h);
+        c.drawBitmap(fxCache, null, fxDst, paint);
+        paint.setFilterBitmap(false);
     }
 
     private void drawAurora(Canvas c, int w, int h, long t) {
