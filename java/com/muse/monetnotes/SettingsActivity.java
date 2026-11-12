@@ -33,11 +33,15 @@ public class SettingsActivity extends Activity {
     private static final int REQ_BG_PICK = 701;
     private static final int REQ_EXPORT = 702;
     private static final int REQ_IMPORT = 703;
+    private static final int REQ_CLOUD_TREE = 704;
 
     private Palette pal;
     private FrameLayout bgFrame;
     private View bgInner;
     private SharedPreferences sp;
+    private TextView cloudDavLabel;
+    private TextView cloudFolderLabel;
+    private TextView cloudLastLabel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -189,6 +193,7 @@ public class SettingsActivity extends Activity {
         buildIcons(col);
         buildGeneral(col);
         buildData(col);
+        buildCloud(col);
         buildAbout(col);
 
         setContentView(frame);
@@ -528,6 +533,304 @@ public class SettingsActivity extends Activity {
         col.addView(box);
     }
 
+    // ---------- 云备份（v1.49） ----------
+
+    private String davSummary() {
+        if (!CloudBackup.davConfigured(this)) return Lang.t("WebDAV 服务器（未配置）");
+        String host = Uri.parse(CloudBackup.getUrl(this)).getHost();
+        return "WebDAV · " + (host == null || host.isEmpty() ? CloudBackup.getUrl(this) : host);
+    }
+
+    private String folderSummary() {
+        return CloudBackup.getTree(this).isEmpty()
+                ? Lang.t("云盘文件夹（未选择）") : Lang.t("云盘文件夹（已选择）");
+    }
+
+    private String lastBackupText() {
+        long last = sp.getLong(CloudBackup.KEY_LAST, 0);
+        if (last <= 0) return Lang.t("从未备份");
+        String when = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+                .format(new java.util.Date(last));
+        return Lang.f("上次备份：%1$s", when);
+    }
+
+    private LinearLayout twoBtnRow(String label, String b1, boolean primary1, View.OnClickListener cb1,
+                                   String b2, View.OnClickListener cb2) {
+        LinearLayout r = row();
+        r.addView(rowLabel(label));
+        r.addView(smallBtn(b1, primary1, cb1));
+        TextView second = smallBtn(b2, false, cb2);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(Ui.dp(this, 8), 0, 0, 0);
+        r.addView(second, lp);
+        return r;
+    }
+
+    private void buildCloud(LinearLayout col) {
+        col.addView(sectionTitle(Lang.t("云备份")));
+        LinearLayout box = cardBox();
+
+        LinearLayout rCfg = row();
+        cloudDavLabel = rowLabel(davSummary());
+        rCfg.addView(cloudDavLabel);
+        rCfg.addView(smallBtn(Lang.t("设置"), false, v -> showDavConfig()));
+        box.addView(rCfg);
+
+        box.addView(twoBtnRow(Lang.t("WebDAV 备份"), Lang.t("立即备份"), true, v -> doDavBackup(),
+                Lang.t("恢复"), v -> doDavRestore()));
+
+        LinearLayout rAuto = row();
+        rAuto.addView(rowLabel(Lang.t("自动备份（每天）")));
+        rAuto.addView(switchFor(CloudBackup.KEY_AUTO, false, () -> CloudBackup.scheduleAuto(this)));
+        box.addView(rAuto);
+
+        LinearLayout rFolder = row();
+        cloudFolderLabel = rowLabel(folderSummary());
+        rFolder.addView(cloudFolderLabel);
+        rFolder.addView(smallBtn(Lang.t("选择"), false, v -> pickCloudFolder()));
+        box.addView(rFolder);
+
+        box.addView(twoBtnRow(Lang.t("云盘文件夹备份"), Lang.t("立即备份"), true, v -> doSafBackup(),
+                Lang.t("恢复"), v -> doSafRestore()));
+
+        cloudLastLabel = Ui.text(this, lastBackupText(), 12, pal.textSecondary, false);
+        cloudLastLabel.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 4));
+        box.addView(cloudLastLabel);
+
+        col.addView(box);
+    }
+
+    private android.widget.EditText davField(String hint, String value, boolean password) {
+        android.widget.EditText et = new android.widget.EditText(this);
+        et.setHint(hint);
+        et.setText(value == null ? "" : value);
+        et.setSingleLine(true);
+        et.setTextColor(pal.textPrimary);
+        et.setHintTextColor(pal.textSecondary);
+        et.setTextSize(15);
+        if (password) {
+            et.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                    | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        }
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(0, Ui.dp(this, 6), 0, Ui.dp(this, 6));
+        et.setLayoutParams(lp);
+        return et;
+    }
+
+    private void showDavConfig() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(Ui.dp(this, 20), Ui.dp(this, 4), Ui.dp(this, 20), 0);
+        final android.widget.EditText etUrl = davField(Lang.t("服务器地址"), CloudBackup.getUrl(this), false);
+        etUrl.setHint("https://example.com/dav");
+        final android.widget.EditText etUser = davField(Lang.t("账号"), CloudBackup.getUser(this), false);
+        final android.widget.EditText etPass = davField(Lang.t("密码"), CloudBackup.getPass(this), true);
+        box.addView(etUrl);
+        box.addView(etUser);
+        box.addView(etPass);
+        TextView note = Ui.text(this, Lang.t("填写你的 WebDAV 文件夹地址，备份会存到该地址下。"), 12, pal.textSecondary, false);
+        note.setPadding(0, Ui.dp(this, 4), 0, Ui.dp(this, 8));
+        box.addView(note);
+        AlertDialog dlg = new AlertDialog.Builder(this)
+                .setTitle("WebDAV")
+                .setView(box)
+                .setNegativeButton(Lang.t("取消"), null)
+                .setNeutralButton(Lang.t("测试连接"), null)
+                .setPositiveButton(Lang.t("保存"), (d, w) -> {
+                    CloudBackup.saveDavConfig(this, etUrl.getText().toString(),
+                            etUser.getText().toString(), etPass.getText().toString());
+                    CloudBackup.scheduleAuto(this);
+                    if (cloudDavLabel != null) cloudDavLabel.setText(davSummary());
+                    Toast.makeText(this, Lang.t("已保存"), Toast.LENGTH_SHORT).show();
+                })
+                .show();
+        Ui.styleDialog(this, dlg);
+        // 测试连接不关弹窗：接管中性按钮，用当前填写的值直接测（不依赖已保存）
+        dlg.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
+            final String url = etUrl.getText().toString().trim();
+            if (url.isEmpty()) {
+                Toast.makeText(this, Lang.t("请先填写服务器地址"), Toast.LENGTH_SHORT).show();
+                return;
+            }
+            final String user = etUser.getText().toString().trim();
+            final String pass = etPass.getText().toString();
+            Toast.makeText(this, Lang.t("正在测试…"), Toast.LENGTH_SHORT).show();
+            new Thread(() -> {
+                try {
+                    CloudBackup.davTest(url, user, pass);
+                    runOnUiThread(() -> Toast.makeText(this, Lang.t("连接成功"), Toast.LENGTH_SHORT).show());
+                } catch (Exception e) {
+                    final String msg = e.getMessage();
+                    runOnUiThread(() -> Toast.makeText(this,
+                            Lang.f("连接失败：%1$s", msg == null ? "" : msg), Toast.LENGTH_LONG).show());
+                }
+            }).start();
+        });
+    }
+
+    private void doDavBackup() {
+        if (!CloudBackup.davConfigured(this)) {
+            Toast.makeText(this, Lang.t("请先设置 WebDAV"), Toast.LENGTH_SHORT).show();
+            showDavConfig();
+            return;
+        }
+        Toast.makeText(this, Lang.t("正在备份…"), Toast.LENGTH_SHORT).show();
+        final android.content.Context app = getApplicationContext();
+        new Thread(() -> {
+            try {
+                CloudBackup.davBackup(app);
+                runOnUiThread(() -> {
+                    Toast.makeText(this, Lang.t("备份成功"), Toast.LENGTH_SHORT).show();
+                    if (cloudLastLabel != null) cloudLastLabel.setText(lastBackupText());
+                });
+            } catch (Exception e) {
+                final String msg = e.getMessage();
+                runOnUiThread(() -> Toast.makeText(this,
+                        Lang.f("备份失败：%1$s", msg == null ? "" : msg), Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    private void doDavRestore() {
+        if (!CloudBackup.davConfigured(this)) {
+            Toast.makeText(this, Lang.t("请先设置 WebDAV"), Toast.LENGTH_SHORT).show();
+            showDavConfig();
+            return;
+        }
+        Toast.makeText(this, Lang.t("正在恢复…"), Toast.LENGTH_SHORT).show();
+        final android.content.Context app = getApplicationContext();
+        new Thread(() -> {
+            try {
+                final CloudBackup.Parsed p = CloudBackup.davRestore(app);
+                runOnUiThread(() -> {
+                    if (p.notes.isEmpty()) {
+                        Toast.makeText(this, Lang.t("备份里没有笔记"), Toast.LENGTH_SHORT).show();
+                    } else {
+                        confirmRestore(p);
+                    }
+                });
+            } catch (Exception e) {
+                final String msg = e.getMessage();
+                final boolean noBackup = e instanceof CloudBackup.DavException
+                        && ((CloudBackup.DavException) e).code == 404;
+                runOnUiThread(() -> Toast.makeText(this, noBackup
+                        ? Lang.t("云端还没有备份")
+                        : Lang.f("恢复失败：%1$s", msg == null ? "" : msg), Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    private void pickCloudFolder() {
+        Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        pick.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        startActivityForResult(pick, REQ_CLOUD_TREE);
+    }
+
+    private void doSafBackup() {
+        String tree = CloudBackup.getTree(this);
+        if (tree.isEmpty()) {
+            Toast.makeText(this, Lang.t("请先选择云盘文件夹"), Toast.LENGTH_SHORT).show();
+            pickCloudFolder();
+            return;
+        }
+        Toast.makeText(this, Lang.t("正在备份…"), Toast.LENGTH_SHORT).show();
+        final android.content.Context app = getApplicationContext();
+        final Uri treeUri = Uri.parse(tree);
+        new Thread(() -> {
+            try {
+                CloudBackup.safBackup(app, treeUri);
+                runOnUiThread(() -> {
+                    Toast.makeText(this, Lang.t("备份成功"), Toast.LENGTH_SHORT).show();
+                    if (cloudLastLabel != null) cloudLastLabel.setText(lastBackupText());
+                });
+            } catch (Exception e) {
+                final String msg = e.getMessage();
+                runOnUiThread(() -> Toast.makeText(this,
+                        Lang.f("备份失败：%1$s", msg == null ? "" : msg), Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    private void doSafRestore() {
+        String tree = CloudBackup.getTree(this);
+        if (tree.isEmpty()) {
+            Toast.makeText(this, Lang.t("请先选择云盘文件夹"), Toast.LENGTH_SHORT).show();
+            pickCloudFolder();
+            return;
+        }
+        Toast.makeText(this, Lang.t("正在恢复…"), Toast.LENGTH_SHORT).show();
+        final android.content.Context app = getApplicationContext();
+        final Uri treeUri = Uri.parse(tree);
+        new Thread(() -> {
+            try {
+                final CloudBackup.Parsed p = CloudBackup.safRestore(app, treeUri);
+                runOnUiThread(() -> {
+                    if (p.notes.isEmpty()) {
+                        Toast.makeText(this, Lang.t("备份里没有笔记"), Toast.LENGTH_SHORT).show();
+                    } else {
+                        confirmRestore(p);
+                    }
+                });
+            } catch (Exception e) {
+                final String msg = e.getMessage();
+                runOnUiThread(() -> Toast.makeText(this,
+                        Lang.f("恢复失败：%1$s", msg == null ? "" : msg), Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    /** 云端恢复确认：与本地导入相同的合并/覆盖语义；覆盖时不删恢复包自带的附件文件。 */
+    private void confirmRestore(final CloudBackup.Parsed p) {
+        String msg = p.withAttachments
+                ? Lang.f("备份里有 %1$d 条笔记（含附件文件）。\n\n合并：只添加现在没有的笔记；\n覆盖：清空现有笔记后整体恢复。", p.notes.size())
+                : Lang.f("备份里有 %1$d 条笔记。\n\n合并：只添加现在没有的笔记；\n覆盖：清空现有笔记后整体恢复。\n\n注意：这份备份只包含笔记数据，附件文件不在其中；同台设备上原有附件仍可打开。", p.notes.size());
+        AlertDialog dlg = new AlertDialog.Builder(this)
+                .setTitle(Lang.t("从云端恢复"))
+                .setMessage(msg)
+                .setNegativeButton(Lang.t("取消"), null)
+                .setNeutralButton(Lang.t("覆盖导入"), (d, w) -> {
+                    java.util.Set<String> keep = new java.util.HashSet<>();
+                    for (Note pn : p.notes) {
+                        for (Note.Attachment a : pn.attachments) keep.add(a.file);
+                    }
+                    for (Note old : NoteStore.load(this)) {
+                        for (Note.Attachment a : old.attachments) {
+                            if (!keep.contains(a.file)) Attachments.fileOf(this, a).delete();
+                        }
+                        ReminderManager.cancel(this, old);
+                    }
+                    java.util.List<Note> all = NoteStore.load(this);
+                    all.clear();
+                    all.addAll(p.notes);
+                    NoteStore.save(this);
+                    ReminderManager.syncAll(this);
+                    Toast.makeText(this, Lang.f("已恢复 %1$d 条笔记", p.notes.size()), Toast.LENGTH_SHORT).show();
+                    recreate();
+                })
+                .setPositiveButton(Lang.t("合并导入"), (d, w) -> {
+                    java.util.Set<String> existing = new java.util.HashSet<>();
+                    for (Note n : NoteStore.load(this)) existing.add(n.id);
+                    int added = 0;
+                    for (Note n : p.notes) {
+                        if (!existing.contains(n.id)) {
+                            NoteStore.load(this).add(n);
+                            added++;
+                        }
+                    }
+                    NoteStore.save(this);
+                    ReminderManager.syncAll(this);
+                    Toast.makeText(this, Lang.f("已导入 %1$d 条（跳过 %2$d 条已存在的）", added, p.notes.size() - added), Toast.LENGTH_LONG).show();
+                    recreate();
+                })
+                .show();
+        Ui.styleDialog(this, dlg);
+    }
+
     private void buildAbout(LinearLayout col) {
         col.addView(sectionTitle(Lang.t("关于")));
         LinearLayout box = cardBox();
@@ -539,7 +842,7 @@ public class SettingsActivity extends Activity {
         tags = tagSet.size();
         TextView info = Ui.text(this,
                 Lang.f("莫奈备忘录 Monet Notes\n版本 %1$s · %2$d 条笔记 · %3$d 个分类 · %4$d 个标签\n原生 Java 实现，无第三方依赖",
-                        "1.48", notes, Categories.load(this).size(), tags),
+                        "1.49", notes, Categories.load(this).size(), tags),
                 14, pal.textSecondary, false);
         info.setPadding(0, Ui.dp(this, 10), 0, Ui.dp(this, 10));
         info.setLineSpacing(0, 1.4f);
@@ -569,6 +872,15 @@ public class SettingsActivity extends Activity {
             } else {
                 Toast.makeText(this, Lang.t("这张图片读不了，换一张试试"), Toast.LENGTH_SHORT).show();
             }
+        } else if (requestCode == REQ_CLOUD_TREE && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            Uri treeUri = data.getData();
+            try {
+                getContentResolver().takePersistableUriPermission(treeUri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            } catch (Exception ignored) { }
+            sp.edit().putString(CloudBackup.KEY_TREE, treeUri.toString()).apply();
+            if (cloudFolderLabel != null) cloudFolderLabel.setText(folderSummary());
+            Toast.makeText(this, Lang.t("云盘文件夹已选择"), Toast.LENGTH_SHORT).show();
         } else if (requestCode == REQ_IMPORT && resultCode == RESULT_OK && data != null && data.getData() != null) {
             handleImport(data.getData());
         } else if (requestCode == REQ_EXPORT && resultCode == RESULT_OK && data != null && data.getData() != null) {

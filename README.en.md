@@ -7,7 +7,7 @@ Written in native Java with the Android SDK — **zero third-party dependencies*
 
 - Package: `com.muse.monetnotes`
 - Min version: Android 8.0 (API 26); Target: Android 14 (API 34)
-- Current version: 1.48
+- Current version: 1.49
 
 ## Screenshots
 
@@ -48,7 +48,7 @@ Written in native Java with the Android SDK — **zero third-party dependencies*
 - Swipe left/right to switch categories, multi-language UI (Simplified Chinese / Traditional Chinese / English, follow system)
 
 **Data**
-- All data stored in the app's private directory (JSON); export a JSON backup from Settings, or import to restore (merge / overwrite)
+- All data stored in the app's private directory (JSON); export a JSON backup from Settings, or import to restore (merge / overwrite); cloud backup to WebDAV (with optional daily auto-backup) or a cloud folder produces a full ZIP including attachments
 
 ## Build
 
