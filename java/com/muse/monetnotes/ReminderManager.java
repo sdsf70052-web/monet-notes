@@ -69,6 +69,11 @@ public class ReminderManager {
         String body = n.checklist
                 ? ("清单 · 已完成 " + n.doneCount() + "/" + n.items.size())
                 : (n.content == null ? "" : n.content.trim());
+        if (n.encrypted) {
+            // 加密笔记的提醒不外露内容
+            title = "🔒 已加密笔记";
+            body = "点开查看内容";
+        }
         if (body.length() > 120) body = body.substring(0, 120) + "…";
         PendingIntent pi = pendingIntent(ctx, n, title, body);
         try {

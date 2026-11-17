@@ -22,7 +22,7 @@ echo "== 1. aapt2 compile + link =="
 "$BT/aapt2" link -o "$OUT/app-unsigned.apk" -I "$ANDROID_JAR" \
     --manifest AndroidManifest.xml "$OUT/res.zip" \
     --java "$OUT/gen" --min-sdk-version 26 --target-sdk-version 34 \
-    --version-code 50 --version-name 1.49
+    --version-code 56 --version-name 1.55
 
 echo "== 2. javac =="
 find java "$OUT/gen" -name '*.java' > "$OUT/sources.txt"

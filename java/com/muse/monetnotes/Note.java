@@ -27,6 +27,9 @@ public class Note {
     public List<Attachment> attachments = new ArrayList<>();
     public long reminderAt = 0;
     public long order = 0; // manual sort position (v1.6)
+    public boolean encrypted = false; // 单篇加密：标题/正文/清单/标签以密文存 encData
+    public String encSalt = ""; // PBKDF2 盐（Base64）
+    public String encData = ""; // AES-GCM 密文（Base64，含 IV 前缀）
 
     public static class CheckItem {
         public String text;
@@ -70,9 +73,10 @@ public class Note {
         return sb.toString().trim();
     }
 
-    public JSONObject toJson() throws JSONException {
+    // ---------- 加密载荷（标题/正文/清单/标签；附件与分类等元数据不加密） ----------
+
+    public JSONObject payloadJson() throws JSONException {
         JSONObject o = new JSONObject();
-        o.put("id", id);
         o.put("title", title);
         o.put("content", content);
         o.put("checklist", checklist);
@@ -84,6 +88,82 @@ public class Note {
             arr.put(io);
         }
         o.put("items", arr);
+        JSONArray tg = new JSONArray();
+        for (String t : tags) tg.put(t);
+        o.put("tags", tg);
+        return o;
+    }
+
+    public void applyPayload(JSONObject o) {
+        title = o.optString("title", "");
+        content = o.optString("content", "");
+        checklist = o.optBoolean("checklist", false);
+        items.clear();
+        JSONArray arr = o.optJSONArray("items");
+        if (arr != null) {
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject io = arr.optJSONObject(i);
+                if (io != null) items.add(new CheckItem(io.optString("text", ""), io.optBoolean("done", false)));
+            }
+        }
+        tags.clear();
+        JSONArray tg = o.optJSONArray("tags");
+        if (tg != null) for (int i = 0; i < tg.length(); i++) tags.add(tg.optString(i, ""));
+    }
+
+    /** 清空内存中的明文字段（锁定状态下只保留密文）。 */
+    public void wipePlaintext() {
+        title = "";
+        content = "";
+        checklist = false;
+        items.clear();
+        tags.clear();
+    }
+
+    /** 载荷的确定性指纹（不依赖 JSON 键序）：NoteCrypto 用它判断明文是否变化、决定要不要重新加密。 */
+    public String payloadFingerprint() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(title).append('\0').append(content).append('\0').append(checklist);
+        for (CheckItem it : items) sb.append('\0').append(it.text).append(it.done ? '1' : '0');
+        for (String t : tags) sb.append('\0').append(t);
+        return sb.toString();
+    }
+
+    public JSONObject toJson() throws JSONException {
+        JSONObject o = new JSONObject();
+        o.put("id", id);
+        // 已加密笔记：明文字段一律写空、只存密文。有会话密钥且明文变了才重新加密；
+        // 没有密钥（锁定状态）时原样保留已有密文，任何保存路径都不会弄丢内容。
+        boolean sealed = false;
+        if (encrypted) {
+            String data = encData;
+            if (NoteCrypto.hasKey(id)) {
+                String fresh = NoteCrypto.encrypt(this);
+                if (fresh != null) data = fresh;
+            }
+            if (data != null && !data.isEmpty()) {
+                encData = data;
+                sealed = true;
+            }
+        }
+        if (sealed) {
+            o.put("title", "");
+            o.put("content", "");
+            o.put("checklist", false);
+            o.put("items", new JSONArray());
+        } else {
+            o.put("title", title);
+            o.put("content", content);
+            o.put("checklist", checklist);
+            JSONArray arr = new JSONArray();
+            for (CheckItem it : items) {
+                JSONObject io = new JSONObject();
+                io.put("text", it.text);
+                io.put("done", it.done);
+                arr.put(io);
+            }
+            o.put("items", arr);
+        }
         o.put("createdAt", createdAt);
         o.put("updatedAt", updatedAt);
         o.put("pinned", pinned);
@@ -91,7 +171,7 @@ public class Note {
         o.put("archived", archived);
         o.put("trashed", trashed);
         JSONArray tg = new JSONArray();
-        for (String t : tags) tg.put(t);
+        if (!sealed) for (String t : tags) tg.put(t);
         o.put("tags", tg);
         o.put("colorIndex", colorIndex);
         o.put("customColor", customColor);
@@ -109,6 +189,11 @@ public class Note {
         o.put("attachments", at);
         o.put("reminderAt", reminderAt);
         o.put("order", order);
+        if (encrypted) {
+            o.put("enc", true);
+            o.put("encSalt", encSalt);
+            o.put("encData", sealed ? encData : "");
+        }
         return o;
     }
 
@@ -150,6 +235,14 @@ public class Note {
         }
         n.reminderAt = o.optLong("reminderAt", 0);
         n.order = o.optLong("order", 0);
+        n.encrypted = o.optBoolean("enc", false);
+        n.encSalt = o.optString("encSalt", "");
+        n.encData = o.optString("encData", "");
+        if (n.encrypted) {
+            // 会话内已解锁过（密钥还在）则直接解密回填——编辑页撤销快照走这条路；
+            // 否则保持锁定：明文字段清空，只留密文。
+            if (!NoteCrypto.tryDecryptInPlace(n)) n.wipePlaintext();
+        }
         return n;
     }
 
@@ -172,6 +265,9 @@ public class Note {
         this.attachments = o.attachments;
         this.reminderAt = o.reminderAt;
         this.order = o.order;
+        this.encrypted = o.encrypted;
+        this.encSalt = o.encSalt;
+        this.encData = o.encData;
     }
 
     public String toJsonString() {

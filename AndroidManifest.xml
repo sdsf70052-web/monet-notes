@@ -3,9 +3,12 @@
     package="com.muse.monetnotes">
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.INTERNET" />
     <application
+        android:name=".App"
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -64,7 +67,24 @@
         </activity-alias>
         <activity android:name=".EditorActivity" android:exported="false"
             android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ShareActivity" android:exported="true"
+            android:theme="@style/ShareTheme" android:label="@string/app_name"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
         <activity android:name=".SettingsActivity" android:exported="false" />
+        <activity android:name=".LockActivity" android:exported="false"
+            android:excludeFromRecents="true" />
+        <activity android:name=".HistoryActivity" android:exported="false" />
         <provider android:name=".AttachProvider"
             android:authorities="com.muse.monetnotes.files"
             android:exported="false"
@@ -79,5 +99,15 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+        <receiver android:name=".NotesWidget" android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
+        <service android:name=".WidgetService" android:exported="true"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
     </application>
 </manifest>

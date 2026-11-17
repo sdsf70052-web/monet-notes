@@ -43,6 +43,7 @@ public class EditorActivity extends Activity {
     private static final int REQ_IMAGE = 3001;
     private static final int REQ_DOC = 3002;
     private static final int REQ_FILE = 3003;
+    private static final int REQ_HISTORY = 3004;
 
     private Palette pal;
     private Note note;
@@ -53,6 +54,8 @@ public class EditorActivity extends Activity {
     private HorizontalScrollView mdBarScroll;
     private TextView previewBox;
     private TextView previewBtn;
+    private TextView lockBtn;
+    private boolean gateLocked = false; // 加密笔记未解锁时为 true：不建编辑界面，onPause 也不回写
     private boolean previewOn;
     private final Runnable mdRestyleTask = () -> {
         if (!previewOn && note != null && !note.checklist && contentBox != null) {
@@ -78,6 +81,8 @@ public class EditorActivity extends Activity {
     private TextView favBtn;
     private TextView undoBtn;
     private ScrollView attachScroll;
+    private boolean attachCollapsed = false; // 用户点标题手动折叠附件列表
+    private boolean attachKbHidden = false;  // 键盘弹起时自动隐藏附件列表，给输入区腾地方
     private ScrollView bodyScroll;
     private LinearLayout searchPanel;
     private LinearLayout replaceRow;
@@ -186,6 +191,12 @@ public class EditorActivity extends Activity {
             String pt = getIntent().getStringExtra("preset_tag");
             if (pt != null && !pt.isEmpty() && !note.tags.contains(pt)) note.tags.add(pt);
         }
+        if (note.encrypted && !NoteCrypto.hasKey(note.id)) {
+            // 加密笔记且本会话未解锁：先过密码门，解锁成功后才建编辑界面
+            gateLocked = true;
+            showLockGate();
+            return;
+        }
         lastSavedJson = note.toJsonString();
         lastUndoKey = buildUndoKey();
         buildUi();
@@ -201,6 +212,7 @@ public class EditorActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
+        if (gateLocked) return; // 还没解锁：界面都没建，绝不能 collect/保存覆盖密文
         collect();
         // 新笔记若完全为空，离开时不保留
         if (isNew && note.title.trim().isEmpty() && note.content.trim().isEmpty()
@@ -210,6 +222,149 @@ public class EditorActivity extends Activity {
         }
         NoteStore.save(this);
         ReminderManager.sync(this, note);
+    }
+
+    // ---------- 笔记加密 ----------
+
+    /** 加密笔记未解锁时的占位页：只有锁图标和解锁按钮，不接触任何明文控件。 */
+    private void showLockGate() {
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setGravity(android.view.Gravity.CENTER);
+        root.setBackgroundColor(pal.background);
+        root.setPadding(Ui.dp(this, 32), 0, Ui.dp(this, 32), 0);
+        TextView icon = Ui.text(this, "🔒", 56, pal.textPrimary, false);
+        icon.setGravity(android.view.Gravity.CENTER);
+        root.addView(icon);
+        TextView msg = Ui.text(this, Lang.t("这篇笔记已加密"), 17, pal.textPrimary, true);
+        msg.setGravity(android.view.Gravity.CENTER);
+        LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        mlp.topMargin = Ui.dp(this, 16);
+        root.addView(msg, mlp);
+        TextView btn = Ui.text(this, Lang.t("输入密码解锁"), 15, pal.primary, true);
+        btn.setGravity(android.view.Gravity.CENTER);
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        blp.topMargin = Ui.dp(this, 26);
+        btn.setLayoutParams(blp);
+        btn.setPadding(Ui.dp(this, 22), Ui.dp(this, 10), Ui.dp(this, 22), Ui.dp(this, 10));
+        btn.setOnClickListener(v -> showUnlockDialog());
+        root.addView(btn);
+        setContentView(root);
+    }
+
+    private EditText pwField(String hint) {
+        EditText et = new EditText(this);
+        et.setHint(hint);
+        et.setSingleLine(true);
+        et.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        et.setTextColor(pal.textPrimary);
+        et.setHintTextColor(pal.textSecondary);
+        et.setTextSize(15);
+        return et;
+    }
+
+    private LinearLayout pwBox(EditText... fields) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(Ui.dp(this, 22), Ui.dp(this, 8), Ui.dp(this, 22), 0);
+        for (EditText f : fields) box.addView(f);
+        return box;
+    }
+
+    private void showUnlockDialog() {
+        final EditText pw = pwField(Lang.t("密码"));
+        AlertDialog dlg = new AlertDialog.Builder(this)
+                .setTitle(Lang.t("输入密码解锁"))
+                .setView(pwBox(pw))
+                .setPositiveButton(Lang.t("解锁"), (d, w) -> {
+                    if (NoteCrypto.unlock(note, pw.getText().toString())) {
+                        gateLocked = false;
+                        lastSavedJson = note.toJsonString();
+                        lastUndoKey = buildUndoKey();
+                        buildUi();
+                    } else {
+                        toast(Lang.t("密码错误，请重试"));
+                    }
+                })
+                .setNegativeButton(Lang.t("取消"), null)
+                .show();
+        Ui.styleDialog(this, dlg);
+    }
+
+    private void onLockButton() {
+        if (!note.encrypted) {
+            showEncryptDialog();
+        } else {
+            showEncryptedActions();
+        }
+    }
+
+    private void showEncryptDialog() {
+        final EditText pw1 = pwField(Lang.t("密码"));
+        final EditText pw2 = pwField(Lang.t("确认密码"));
+        AlertDialog dlg = new AlertDialog.Builder(this)
+                .setTitle(Lang.t("设置加密密码"))
+                .setMessage(Lang.t("附件文件不会被加密；忘记密码将无法找回笔记内容。"))
+                .setView(pwBox(pw1, pw2))
+                .setPositiveButton(Lang.t("加密"), (d, w) -> {
+                    String a = pw1.getText().toString();
+                    String b = pw2.getText().toString();
+                    if (a.isEmpty()) {
+                        toast(Lang.t("密码不能为空"));
+                        return;
+                    }
+                    if (!a.equals(b)) {
+                        toast(Lang.t("两次输入的密码不一致"));
+                        return;
+                    }
+                    collect();
+                    if (NoteCrypto.setupPassword(note, a)) {
+                        note.encrypted = true;
+                        NoteStore.save(this);
+                        if (lockBtn != null) lockBtn.setText("🔒");
+                        toast(Lang.t("已加密"));
+                    }
+                })
+                .setNegativeButton(Lang.t("取消"), null)
+                .show();
+        Ui.styleDialog(this, dlg);
+    }
+
+    private void showEncryptedActions() {
+        AlertDialog dlg = new AlertDialog.Builder(this)
+                .setTitle(Lang.t("已加密"))
+                .setItems(new String[]{Lang.t("取消加密"), Lang.t("立即锁定")}, (d, which) -> {
+                    if (which == 0) {
+                        AlertDialog confirm = new AlertDialog.Builder(this)
+                                .setMessage(Lang.t("确定取消加密？笔记将恢复为普通笔记。"))
+                                .setPositiveButton(Lang.t("取消加密"), (d2, w2) -> {
+                                    note.encrypted = false;
+                                    note.encSalt = "";
+                                    note.encData = "";
+                                    NoteCrypto.clearKey(note.id);
+                                    NoteStore.save(this);
+                                    if (lockBtn != null) lockBtn.setText("🔓");
+                                    toast(Lang.t("已取消加密"));
+                                })
+                                .setNegativeButton(Lang.t("取消"), null)
+                                .show();
+                        Ui.styleDialog(this, confirm);
+                    } else {
+                        // 立即锁定：清密钥、抹内存明文、落盘（密文原样保留），然后退出编辑页
+                        NoteCrypto.clearKey(note.id);
+                        note.wipePlaintext();
+                        NoteStore.save(this);
+                        gateLocked = true; // 让 onPause 跳过 collect，避免把界面残留文字写回
+                        toast(Lang.t("笔记已锁定"));
+                        finish();
+                    }
+                })
+                .setNegativeButton(Lang.t("取消"), null)
+                .show();
+        Ui.styleDialog(this, dlg);
     }
 
     // ---------- 撤销 / 重做 ----------
@@ -351,6 +506,8 @@ public class EditorActivity extends Activity {
         bar.addView(previewBtn);
         bar.addView(barBtn("🔍", v -> toggleSearchPanel()));
         bar.addView(barBtn("↗", v -> share()));
+        lockBtn = barBtn(note.encrypted ? "🔒" : "🔓", v -> onLockButton());
+        bar.addView(lockBtn);
         root.addView(bar);
 
         // 工具条（可横向滚动）
@@ -365,6 +522,11 @@ public class EditorActivity extends Activity {
         tools.addView(toolChip(Lang.t("🎨 颜色"), v -> pickColor()));
         tools.addView(toolChip(Lang.t("🔔 提醒"), v -> pickReminder()));
         tools.addView(toolChip(Lang.t("📤 导出"), v -> { collect(); Exporter.showExport(this, note, pal); }));
+        tools.addView(toolChip(Lang.t("🕘 历史"), v -> {
+            Intent hi = new Intent(this, HistoryActivity.class);
+            hi.putExtra("note_id", note.id);
+            startActivityForResult(hi, REQ_HISTORY);
+        }));
         HorizontalScrollView thsv = new HorizontalScrollView(this);
         thsv.setHorizontalScrollBarEnabled(false);
         thsv.addView(tools);
@@ -378,6 +540,11 @@ public class EditorActivity extends Activity {
         attachHead.setOrientation(LinearLayout.HORIZONTAL);
         attachHead.setGravity(Gravity.CENTER_VERTICAL);
         attachTitle = Ui.text(this, Lang.t("附件"), 14, pal.textPrimary, true);
+        attachTitle.setOnClickListener(v -> {
+            if (note.attachments.isEmpty()) return;
+            attachCollapsed = !attachCollapsed;
+            renderAttachments();
+        });
         attachHead.addView(attachTitle, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         attachHead.addView(toolChip(Lang.t("🖼 图片"), v -> launchPicker(REQ_IMAGE)));
         attachHead.addView(toolChip(Lang.t("📄 文档"), v -> launchPicker(REQ_DOC)));
@@ -530,6 +697,17 @@ public class EditorActivity extends Activity {
         FastScroll.attachBackToTop(this, frame, sv, pal, true, 64, 16);
         setContentView(frame);
         BgHelper.apply(this, frame, pal, root, false);
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            // 键盘弹起时自动收起附件列表：附件多时它会把输入区挤没；键盘收起后自动恢复
+            frame.setOnApplyWindowInsetsListener((v, insets) -> {
+                boolean kb = insets.isVisible(android.view.WindowInsets.Type.ime());
+                if (kb != attachKbHidden) {
+                    attachKbHidden = kb;
+                    updateAttachVisibility();
+                }
+                return insets;
+            });
+        }
         if (isLongNote && !note.checklist) {
             // 先让界面和进度条画出来，再分块载入正文，避免长时间黑屏
             loadingContent = true;
@@ -983,6 +1161,11 @@ public class EditorActivity extends Activity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (Exporter.handleSaveResult(this, requestCode, resultCode, data)) return;
+        if (requestCode == REQ_HISTORY) {
+            // 在历史页恢复了版本：重建编辑页以载入恢复后的内容
+            if (resultCode == RESULT_OK) recreate();
+            return;
+        }
         if (resultCode != RESULT_OK || data == null) return;
         if (requestCode != REQ_IMAGE && requestCode != REQ_DOC && requestCode != REQ_FILE) return;
         List<Uri> uris = new ArrayList<>();
@@ -1013,7 +1196,8 @@ public class EditorActivity extends Activity {
 
     private void renderAttachments() {
         attachmentsBox.removeAllViews();
-        attachTitle.setText(Lang.t("附件") + (note.attachments.isEmpty() ? "" : " (" + note.attachments.size() + ")"));
+        attachTitle.setText(Lang.t("附件") + (note.attachments.isEmpty() ? "" : " (" + note.attachments.size() + ")")
+                + (note.attachments.isEmpty() ? "" : (attachCollapsed ? " ▸" : " ▾")));
         for (int i = 0; i < note.attachments.size(); i++) {
             final int idx = i;
             final Note.Attachment a = note.attachments.get(i);
@@ -1059,14 +1243,19 @@ public class EditorActivity extends Activity {
             row.setOnClickListener(v -> Attachments.open(this, a));
             attachmentsBox.addView(row);
         }
-        if (attachScroll != null) {
-            int rows = note.attachments.size();
-            attachScroll.setVisibility(rows == 0 ? View.GONE : View.VISIBLE);
-            if (rows > 0) {
-                ViewGroup.LayoutParams lp = attachScroll.getLayoutParams();
-                lp.height = Ui.dp(this, Math.min(rows, 3) * 76);
-                attachScroll.setLayoutParams(lp);
-            }
+        updateAttachVisibility();
+    }
+
+    /** 附件列表的显隐与限高：无附件、被手动折叠、或键盘弹起时隐藏；展开时最多 3 行高，内部滚动。 */
+    private void updateAttachVisibility() {
+        if (attachScroll == null || note == null) return;
+        int rows = note.attachments.size();
+        boolean show = rows > 0 && !attachCollapsed && !attachKbHidden;
+        attachScroll.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (show) {
+            ViewGroup.LayoutParams lp = attachScroll.getLayoutParams();
+            lp.height = Ui.dp(this, Math.min(rows, 3) * 76);
+            attachScroll.setLayoutParams(lp);
         }
     }
 

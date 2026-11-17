@@ -192,6 +192,7 @@ public class SettingsActivity extends Activity {
         buildBackground(col);
         buildIcons(col);
         buildGeneral(col);
+        buildSecurity(col);
         buildData(col);
         buildCloud(col);
         buildAbout(col);
@@ -470,6 +471,62 @@ public class SettingsActivity extends Activity {
             Ui.styleDialog(this, dlg);
         });
         box.addView(r3);
+        col.addView(box);
+    }
+
+    private void buildSecurity(LinearLayout col) {
+        col.addView(sectionTitle(Lang.t("安全")));
+        LinearLayout box = cardBox();
+        LinearLayout r1 = row();
+        r1.addView(rowLabel(Lang.t("指纹锁")));
+        Switch lockSw = new Switch(this);
+        lockSw.setThumbTintList(new android.content.res.ColorStateList(
+                new int[][]{{android.R.attr.state_checked}, {}},
+                new int[]{pal.primary, Palette.blend(pal.textPrimary, pal.background, 0.45f)}));
+        lockSw.setTrackTintList(new android.content.res.ColorStateList(
+                new int[][]{{android.R.attr.state_checked}, {}},
+                new int[]{Palette.withAlpha(pal.primary, 0x66), Palette.withAlpha(pal.outline, 0x55)}));
+        lockSw.setChecked(AppLock.enabled(this));
+        lockSw.setOnCheckedChangeListener((v, checked) -> {
+            if (!checked) {
+                AppLock.setEnabled(this, false);
+                return;
+            }
+            int st = AppLock.canUse(this);
+            if (st != AppLock.BIO_OK) {
+                lockSw.setChecked(false);
+                Toast.makeText(this, st == AppLock.BIO_NONE_ENROLLED
+                        ? Lang.t("请先在系统设置里录入指纹")
+                        : Lang.t("此设备不支持指纹解锁"), Toast.LENGTH_SHORT).show();
+                return;
+            }
+            // 开启前先验证一次指纹，确认可用才真正打开开关
+            AppLock.prompt(this, Lang.t("解锁莫奈备忘录"), Lang.t("取消"), new AppLock.Callback() {
+                @Override
+                public void onSuccess() {
+                    AppLock.setEnabled(SettingsActivity.this, true);
+                    AppLock.markUnlocked();
+                    Toast.makeText(SettingsActivity.this, Lang.t("指纹锁已开启"), Toast.LENGTH_SHORT).show();
+                }
+
+                @Override
+                public void onError(int errorCode) {
+                    lockSw.setChecked(false);
+                    if (errorCode == -1) {
+                        Toast.makeText(SettingsActivity.this,
+                                Lang.t("此设备不支持指纹解锁"), Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        });
+        r1.addView(lockSw);
+        box.addView(r1);
+
+        LinearLayout r2 = row();
+        r2.addView(rowLabel(Lang.t("单篇笔记加密")));
+        TextView hint = Ui.text(this, Lang.t("在编辑页点 🔒 设置"), 13, pal.textSecondary, false);
+        r2.addView(hint);
+        box.addView(r2);
         col.addView(box);
     }
 

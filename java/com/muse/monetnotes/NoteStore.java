@@ -66,6 +66,8 @@ public class NoteStore {
 
     public static synchronized void save(Context ctx) {
         writeAll(ctx);
+        NotesWidget.requestUpdate(ctx);
+        NoteHistory.onSaved(ctx, cache);
     }
 
     private static void writeAll(Context ctx) {
@@ -102,6 +104,8 @@ public class NoteStore {
             asyncQueued = false;
             synchronized (NoteStore.class) {
                 writeAll(app);
+                NotesWidget.requestUpdate(app);
+                NoteHistory.onSaved(app, cache);
             }
         });
     }
@@ -118,6 +122,13 @@ public class NoteStore {
         c.customColor = src.customColor;
         c.category = targetCategory != null ? targetCategory : src.category;
         c.favorite = src.favorite;
+        if (src.encrypted) {
+            // 加密笔记的副本保持加密（同盐同密文）；会话密钥共享给副本，解锁状态一致
+            c.encrypted = true;
+            c.encSalt = src.encSalt;
+            c.encData = src.encData;
+            NoteCrypto.shareKey(src.id, c.id);
+        }
         c.reminderAt = src.reminderAt > System.currentTimeMillis() ? src.reminderAt : 0;
         for (Note.Attachment a : src.attachments) {
             Note.Attachment dup = Attachments.duplicate(ctx, a);

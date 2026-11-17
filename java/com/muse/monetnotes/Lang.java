@@ -412,5 +412,67 @@ public class Lang {
         d("标签已存在", "標籤已存在", "Tag already exists");
         d("还没有标签，用下面的输入框添加", "還沒有標籤，用下面的輸入框新增", "No tags yet — add one below");
         d("其它笔记的标签，点一下添加：", "其它筆記的標籤，點一下新增：", "Tags from other notes — tap to add:");
+
+        // ---- 系统分享 ----
+        d("保存到莫奈备忘录", "儲存到莫奈備忘錄", "Save to Monet Notes");
+        d("已保存到莫奈备忘录", "已儲存到莫奈備忘錄", "Saved to Monet Notes");
+        d("没有可保存的内容", "沒有可儲存的內容", "Nothing to save");
+        d("正在保存…", "正在儲存…", "Saving…");
+        d("编辑", "編輯", "Edit");
+        d("附件", "附件", "Attachment");
+        d("…等 %1$d 个文件", "…等 %1$d 個檔案", "… %1$d files in total");
+
+        // ---- 桌面小部件 ----
+        d("还没有笔记", "還沒有筆記", "No notes yet");
+        d("无标题", "無標題", "Untitled");
+
+        // ---- 安全：指纹锁与笔记加密 ----
+        d("安全", "安全", "Security");
+        d("指纹锁", "指紋鎖", "Fingerprint lock");
+        d("指纹锁已开启", "指紋鎖已開啟", "Fingerprint lock is on");
+        d("单篇笔记加密", "單篇筆記加密", "Per-note encryption");
+        d("在编辑页点 🔒 设置", "在編輯頁點 🔒 設定", "Set it via 🔒 in the editor");
+        d("解锁莫奈备忘录", "解鎖莫奈備忘錄", "Unlock Monet Notes");
+        d("莫奈备忘录已锁定", "莫奈備忘錄已鎖定", "Monet Notes is locked");
+        d("使用指纹解锁", "使用指紋解鎖", "Use fingerprint to unlock");
+        d("指纹不可用", "指紋不可用", "Fingerprint unavailable");
+        d("无法使用指纹解锁，可以关闭指纹锁后进入，或退出应用。", "無法使用指紋解鎖，可以關閉指紋鎖後進入，或退出應用。", "Fingerprint unlock is unavailable. You can turn off the fingerprint lock to enter, or exit the app.");
+        d("关闭指纹锁并进入", "關閉指紋鎖並進入", "Turn off fingerprint lock and enter");
+        d("退出", "退出", "Exit");
+        d("此设备不支持指纹解锁", "此裝置不支援指紋解鎖", "Fingerprint unlock is not supported on this device");
+        d("请先在系统设置里录入指纹", "請先在系統設定裡錄入指紋", "Enroll a fingerprint in system settings first");
+        d("🔒 已加密", "🔒 已加密", "🔒 Encrypted");
+        d("内容已加密，点开输入密码查看", "內容已加密，點開輸入密碼查看", "Encrypted — tap to view with password");
+        d("这篇笔记已加密", "這篇筆記已加密", "This note is encrypted");
+        d("输入密码解锁", "輸入密碼解鎖", "Enter password to unlock");
+        d("密码", "密碼", "Password");
+        d("确认密码", "確認密碼", "Confirm password");
+        d("密码不能为空", "密碼不能為空", "Password cannot be empty");
+        d("两次输入的密码不一致", "兩次輸入的密碼不一致", "Passwords do not match");
+        d("密码错误，请重试", "密碼錯誤，請重試", "Wrong password, please try again");
+        d("设置加密密码", "設定加密密碼", "Set encryption password");
+        d("附件文件不会被加密；忘记密码将无法找回笔记内容。", "附件檔案不會被加密；忘記密碼將無法找回筆記內容。", "Attachments are not encrypted. If you forget the password, the note content cannot be recovered.");
+        d("加密", "加密", "Encrypt");
+        d("已加密", "已加密", "Encrypted");
+        d("取消加密", "取消加密", "Remove encryption");
+        d("立即锁定", "立即鎖定", "Lock now");
+        d("确定取消加密？笔记将恢复为普通笔记。", "確定取消加密？筆記將恢復為普通筆記。", "Remove encryption? The note will become a regular note.");
+        d("已取消加密", "已取消加密", "Encryption removed");
+        d("笔记已锁定", "筆記已鎖定", "Note locked");
+        d("解锁", "解鎖", "Unlock");
+
+        // ---- 历史版本 ----
+        d("历史版本", "歷史版本", "Version history");
+        d("🕘 历史", "🕘 歷史", "🕘 History");
+        d("当前", "目前", "Current");
+        d("加密版本", "加密版本", "Encrypted version");
+        d("恢复到此版本", "恢復到此版本", "Restore this version");
+        d("恢复此版本？", "恢復此版本？", "Restore this version?");
+        d("恢复后，当前内容也会保留在历史版本中。", "恢復後，目前內容也會保留在歷史版本中。", "Your current content will also be kept in the version history.");
+        d("已恢复到此版本", "已恢復到此版本", "Restored to this version");
+        d("还没有历史版本", "還沒有歷史版本", "No versions yet");
+        d("修改后会自动保存历史版本", "修改後會自動儲存歷史版本", "Versions are saved automatically when the note changes");
+        d("这是用旧密码加密的版本，恢复后打开它需要旧密码。", "這是用舊密碼加密的版本，恢復後打開它需要舊密碼。", "This version was encrypted with an old password; you will need that password to open it after restoring.");
+        d("yyyy年M月d日 HH:mm", "yyyy年M月d日 HH:mm", "MMM d, yyyy HH:mm");
     }
 }

@@ -92,6 +92,7 @@ public class Palette {
         }
     }
     public static final String KEY_SWIPE_FX = "swipe_fx"; // 分类切换特效：0 滑动 1 淡入淡出 2 缩放 3 无
+    public static final String KEY_APP_LOCK = "app_lock"; // 指纹锁（打开应用需生物识别）
 
     public static boolean isDark(Context ctx, SharedPreferences sp) {
         int mode = sp.getInt(KEY_MODE, 0);

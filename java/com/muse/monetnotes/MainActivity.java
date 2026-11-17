@@ -752,7 +752,9 @@ public class MainActivity extends Activity {
             badge.setLayoutParams(blp);
             top.addView(badge);
         }
-        TextView title = Ui.text(this, n.title.isEmpty() ? Lang.t("(无标题)") : n.title, 16, pal.textPrimary, true);
+        boolean encLocked = n.encrypted && !NoteCrypto.hasKey(n.id);
+        TextView title = Ui.text(this, encLocked ? Lang.t("🔒 已加密")
+                : (n.title.isEmpty() ? Lang.t("(无标题)") : n.title), 16, pal.textPrimary, true);
         title.setMaxLines(2);
         top.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         TextView more = Ui.text(this, "⋮", 22, pal.textSecondary, true);
@@ -763,6 +765,12 @@ public class MainActivity extends Activity {
         more.setOnClickListener(v -> showCardMenu(v, n));
         top.addView(more);
         card.addView(top);
+
+        if (encLocked) {
+            TextView lockLine = Ui.text(this, Lang.t("内容已加密，点开输入密码查看"), 13, pal.textSecondary, false);
+            lockLine.setPadding(0, Ui.dp(this, 5), 0, 0);
+            card.addView(lockLine);
+        }
 
         if (n.checklist) {
             int max = Math.min(n.items.size(), grid ? 4 : 3);
@@ -790,7 +798,7 @@ public class MainActivity extends Activity {
 
         Note.Attachment firstImage = null;
         for (Note.Attachment a : n.attachments) if (a.isImage()) { firstImage = a; break; }
-        if (firstImage != null) {
+        if (firstImage != null && !encLocked) {
             Bitmap bm = Attachments.thumbnail(this, firstImage, 400);
             if (bm != null) {
                 ImageView iv = new ImageView(this);
@@ -1081,6 +1089,7 @@ public class MainActivity extends Activity {
             menu.getMenu().add(0, 16, 0, Lang.t("多选"));
             menu.getMenu().add(0, 4, 0, Lang.t("分享"));
             menu.getMenu().add(0, 17, 0, Lang.t("导出…"));
+            menu.getMenu().add(0, 18, 0, Lang.t("历史版本"));
             menu.getMenu().add(0, 5, 0, Lang.t("复制正文"));
             menu.getMenu().add(0, 6, 0, Lang.t("移到回收站"));
         }
@@ -1115,6 +1124,12 @@ public class MainActivity extends Activity {
                 case 16: enterSelection(n); return true;
                 case 4: share(n); return true;
                 case 17: Exporter.showExport(this, n, pal); return true;
+                case 18: {
+                    Intent hi = new Intent(this, HistoryActivity.class);
+                    hi.putExtra("note_id", n.id);
+                    startActivity(hi);
+                    return true;
+                }
                 case 5: copy(n); return true;
                 case 6: {
                     UndoEntry snap = capture(java.util.Collections.singletonList(n));
